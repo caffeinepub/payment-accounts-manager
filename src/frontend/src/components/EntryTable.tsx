@@ -16,11 +16,12 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { Edit2, MessageCircle, Trash2 } from "lucide-react";
+import { Edit2, MessageCircle, Phone, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import type { Entry } from "../backend.d";
 import { useDeleteEntry } from "../hooks/useQueries";
+import { getCommissionSplit } from "../utils/commissionSplitStorage";
 import {
   buildWhatsAppUrl,
   formatCurrency,
@@ -71,12 +72,13 @@ export function EntryTable({ entries, isLoading, search }: EntryTableProps) {
         data-ocid="entry.table"
       >
         <div className="bg-muted/50 px-3 py-2 border-b border-border">
-          <div className="grid grid-cols-7 gap-4">
+          <div className="grid grid-cols-8 gap-4">
             {[
               "Name",
               "Mobile No",
               "Amount",
-              "Commission",
+              "Comm Prakash",
+              "Comm Other",
               "Total Amt",
               "Paid",
               "Actions",
@@ -88,10 +90,12 @@ export function EntryTable({ entries, isLoading, search }: EntryTableProps) {
         <div className="divide-y divide-border">
           {["r1", "r2", "r3", "r4", "r5"].map((rowKey) => (
             <div key={rowKey} className="px-3 py-2">
-              <div className="grid grid-cols-7 gap-4">
-                {["c1", "c2", "c3", "c4", "c5", "c6", "c7"].map((colKey) => (
-                  <Skeleton key={colKey} className="h-3 w-full" />
-                ))}
+              <div className="grid grid-cols-8 gap-4">
+                {["c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8"].map(
+                  (colKey) => (
+                    <Skeleton key={colKey} className="h-3 w-full" />
+                  ),
+                )}
               </div>
             </div>
           ))}
@@ -105,27 +109,30 @@ export function EntryTable({ entries, isLoading, search }: EntryTableProps) {
       <div className="border border-border rounded overflow-hidden">
         <div className="overflow-x-auto">
           <Table
-            className="compact-table text-xs w-full min-w-[640px]"
+            className="compact-table text-xs w-full min-w-[760px]"
             data-ocid="entry.table"
           >
             <TableHeader className="sticky top-0 z-10 sticky-shadow">
               <TableRow className="bg-muted/70 hover:bg-muted/70">
-                <TableHead className="py-2 text-[10px] uppercase tracking-wide font-semibold text-muted-foreground w-[18%]">
+                <TableHead className="py-2 text-[10px] uppercase tracking-wide font-semibold text-muted-foreground w-[16%]">
                   Name
                 </TableHead>
-                <TableHead className="py-2 text-[10px] uppercase tracking-wide font-semibold text-muted-foreground w-[16%]">
+                <TableHead className="py-2 text-[10px] uppercase tracking-wide font-semibold text-muted-foreground w-[14%]">
                   Mobile No
                 </TableHead>
-                <TableHead className="py-2 text-[10px] uppercase tracking-wide font-semibold text-muted-foreground text-right w-[13%]">
+                <TableHead className="py-2 text-[10px] uppercase tracking-wide font-semibold text-muted-foreground text-right w-[11%]">
                   Amount
                 </TableHead>
-                <TableHead className="py-2 text-[10px] uppercase tracking-wide font-semibold text-muted-foreground text-right w-[13%]">
-                  Commission
+                <TableHead className="py-2 text-[10px] uppercase tracking-wide font-semibold text-muted-foreground text-right w-[12%]">
+                  Comm Prakash
                 </TableHead>
-                <TableHead className="py-2 text-[10px] uppercase tracking-wide font-semibold text-muted-foreground text-right w-[13%]">
+                <TableHead className="py-2 text-[10px] uppercase tracking-wide font-semibold text-muted-foreground text-right w-[11%]">
+                  Comm Other
+                </TableHead>
+                <TableHead className="py-2 text-[10px] uppercase tracking-wide font-semibold text-muted-foreground text-right w-[11%]">
                   Total Amt
                 </TableHead>
-                <TableHead className="py-2 text-[10px] uppercase tracking-wide font-semibold text-muted-foreground w-[10%]">
+                <TableHead className="py-2 text-[10px] uppercase tracking-wide font-semibold text-muted-foreground w-[9%]">
                   Paid
                 </TableHead>
                 <TableHead className="py-2 text-[10px] uppercase tracking-wide font-semibold text-muted-foreground w-[100px]">
@@ -138,7 +145,7 @@ export function EntryTable({ entries, isLoading, search }: EntryTableProps) {
               {filtered.length === 0 && (
                 <TableRow>
                   <TableCell
-                    colSpan={7}
+                    colSpan={8}
                     className="py-10 text-center"
                     data-ocid="entry.empty_state"
                   >
@@ -159,6 +166,10 @@ export function EntryTable({ entries, isLoading, search }: EntryTableProps) {
               {filtered.map((entry, idx) => {
                 const overdue = isOverdue(entry.paid, entry.dateCreated);
                 const rowIndex = idx + 1;
+                const split = getCommissionSplit(entry.id);
+                const commPrakashNum =
+                  Number.parseFloat(split.commPrakash) || 0;
+                const commOthersNum = Number.parseFloat(split.commOthers) || 0;
 
                 return (
                   <TableRow
@@ -177,7 +188,7 @@ export function EntryTable({ entries, isLoading, search }: EntryTableProps) {
                     <TableCell className="py-1 font-medium text-foreground">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <span
-                          className="truncate max-w-[110px]"
+                          className="truncate max-w-[100px]"
                           title={entry.name}
                         >
                           {entry.name}
@@ -203,9 +214,16 @@ export function EntryTable({ entries, isLoading, search }: EntryTableProps) {
                       {formatCurrency(entry.amount)}
                     </TableCell>
 
-                    {/* Commission */}
+                    {/* Comm Prakash */}
                     <TableCell className="py-1 text-right font-mono tabular-nums text-muted-foreground">
-                      {formatCurrency(entry.commission)}
+                      {commPrakashNum > 0
+                        ? `₹${commPrakashNum.toFixed(2)}`
+                        : "-"}
+                    </TableCell>
+
+                    {/* Comm Other */}
+                    <TableCell className="py-1 text-right font-mono tabular-nums text-muted-foreground">
+                      {commOthersNum > 0 ? `₹${commOthersNum.toFixed(2)}` : "-"}
                     </TableCell>
 
                     {/* Total */}
@@ -273,6 +291,26 @@ export function EntryTable({ entries, isLoading, search }: EntryTableProps) {
                           </TooltipTrigger>
                           <TooltipContent side="top" className="text-xs">
                             Delete
+                          </TooltipContent>
+                        </Tooltip>
+
+                        {/* Call */}
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-6 w-6 text-muted-foreground hover:text-[oklch(0.45_0.18_250)] hover:bg-[oklch(0.95_0.05_250/0.5)]"
+                              asChild
+                              data-ocid={`entry.call_button.${rowIndex}`}
+                            >
+                              <a href={`tel:${entry.mobileNumber}`}>
+                                <Phone className="h-3 w-3" />
+                              </a>
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-xs">
+                            Call
                           </TooltipContent>
                         </Tooltip>
 

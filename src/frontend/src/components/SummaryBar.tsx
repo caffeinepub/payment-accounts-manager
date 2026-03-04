@@ -1,5 +1,6 @@
 import { AlertTriangle } from "lucide-react";
 import type { Entry } from "../backend.d";
+import { getCommissionSplitMap } from "../utils/commissionSplitStorage";
 import { formatCurrency } from "../utils/currency";
 import { isOverdue } from "../utils/currency";
 
@@ -20,21 +21,55 @@ export function SummaryBar({ entries }: SummaryBarProps) {
     isOverdue(e.paid, e.dateCreated),
   ).length;
 
+  // Commission split totals from localStorage
+  const splitMap = getCommissionSplitMap();
+  const totalCommPrakash = entries.reduce((sum, e) => {
+    const split = splitMap[e.id];
+    return sum + (split ? Number.parseFloat(split.commPrakash) || 0 : 0);
+  }, 0);
+  const totalCommOthers = entries.reduce((sum, e) => {
+    const split = splitMap[e.id];
+    return sum + (split ? Number.parseFloat(split.commOthers) || 0 : 0);
+  }, 0);
+
+  const totalAmt = entries.reduce((sum, e) => sum + Number(e.totalAmount), 0);
+
   const stats = [
     {
-      label: "Total Entries",
-      value: entries.length.toString(),
-      isNumber: false,
+      label: "Amount",
+      value: formatCurrency(
+        BigInt(Math.round(entries.reduce((s, e) => s + Number(e.amount), 0))),
+      ),
+      isNumber: true,
+      color: "text-foreground" as const,
+    },
+    {
+      label: "Comm Prakash",
+      value: `₹${totalCommPrakash.toFixed(2)}`,
+      isNumber: true,
+      color: "text-[oklch(0.5_0.18_250)]" as const,
+    },
+    {
+      label: "Comm Other",
+      value: `₹${totalCommOthers.toFixed(2)}`,
+      isNumber: true,
+      color: "text-[oklch(0.5_0.18_145)]" as const,
+    },
+    {
+      label: "Total Amt",
+      value: formatCurrency(BigInt(Math.round(totalAmt))),
+      isNumber: true,
+      color: "text-foreground" as const,
     },
     {
       label: "Total Due",
-      value: formatCurrency(BigInt(totalDue)),
+      value: formatCurrency(BigInt(Math.round(totalDue))),
       isNumber: true,
       color: "text-warning" as const,
     },
     {
       label: "Total Collected",
-      value: formatCurrency(BigInt(totalCollected)),
+      value: formatCurrency(BigInt(Math.round(totalCollected))),
       isNumber: true,
       color: "text-success" as const,
     },
@@ -51,7 +86,7 @@ export function SummaryBar({ entries }: SummaryBarProps) {
             {stat.label}
           </span>
           <span
-            className={`text-sm font-semibold font-mono ${stat.color ?? "text-foreground"} tabular-nums`}
+            className={`text-sm font-semibold font-mono ${stat.color} tabular-nums`}
           >
             {stat.value}
           </span>

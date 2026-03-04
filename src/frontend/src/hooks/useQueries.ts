@@ -1,6 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Entry } from "../backend.d";
+import { removeCommissionType } from "../utils/commissionStorage";
+import { getSecretParameter } from "../utils/urlParams";
 import { useActor } from "./useActor";
+
+async function ensureRegistered(actor: {
+  _initializeAccessControlWithSecret: (token: string) => Promise<void>;
+}) {
+  const adminToken = getSecretParameter("caffeineAdminToken") || "";
+  try {
+    await actor._initializeAccessControlWithSecret(adminToken);
+  } catch {
+    // Already registered or initialization failed — continue
+  }
+}
 
 export function useGetEntries() {
   const { actor, isFetching } = useActor();
@@ -30,6 +43,7 @@ export function useCreateEntry() {
       commission: bigint;
     }) => {
       if (!actor) throw new Error("Not authenticated");
+      await ensureRegistered(actor);
       return actor.createEntry(name, mobileNumber, amount, commission);
     },
     onSuccess: () => {
@@ -58,6 +72,7 @@ export function useUpdateEntry() {
       paid: boolean;
     }) => {
       if (!actor) throw new Error("Not authenticated");
+      await ensureRegistered(actor);
       return actor.updateEntry(
         id,
         name,
@@ -79,9 +94,11 @@ export function useDeleteEntry() {
   return useMutation({
     mutationFn: async (id: string) => {
       if (!actor) throw new Error("Not authenticated");
+      await ensureRegistered(actor);
       return actor.deleteEntry(id);
     },
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
+      removeCommissionType(id);
       void queryClient.invalidateQueries({ queryKey: ["entries"] });
     },
   });

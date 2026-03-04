@@ -1,15 +1,18 @@
 import Time "mo:core/Time";
-import Array "mo:core/Array";
 import Text "mo:core/Text";
 import Map "mo:core/Map";
 import Principal "mo:core/Principal";
 import Iter "mo:core/Iter";
 import Nat "mo:core/Nat";
+import Int "mo:core/Int";
+import Array "mo:core/Array";
 import Order "mo:core/Order";
 import Runtime "mo:core/Runtime";
 
+
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
+
 
 actor {
   type Entry = {
@@ -99,7 +102,7 @@ actor {
 
     let entries = getEntriesForCaller(caller);
     let entriesArray = entries.values().toArray();
-    entriesArray.sort();
+    entriesArray.sort<Entry>();
   };
 
   public shared ({ caller }) func updateEntry(id : Text, name : Text, mobileNumber : Text, amount : Nat, commission : Nat, paid : Bool) : async () {

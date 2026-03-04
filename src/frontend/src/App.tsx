@@ -2,16 +2,25 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Toaster } from "@/components/ui/sonner";
-import { LogOut, Plus, RefreshCw, Search, Share2, Wallet } from "lucide-react";
+import {
+  Download,
+  LogOut,
+  Plus,
+  RefreshCw,
+  Search,
+  Share2,
+  Wallet,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { EntryFormDialog } from "./components/EntryFormDialog";
 import { EntryTable } from "./components/EntryTable";
 import { LoginScreen } from "./components/LoginScreen";
+import { MonthlyProfitButton } from "./components/MonthlyProfitSummary";
 import { SummaryBar } from "./components/SummaryBar";
 import { useInternetIdentity } from "./hooks/useInternetIdentity";
 import { useGetEntries } from "./hooks/useQueries";
-import { formatCurrency } from "./utils/currency";
+import { exportEntriesToExcel } from "./utils/exportExcel";
 
 function MainApp() {
   const { clear, identity } = useInternetIdentity();
@@ -27,6 +36,25 @@ function MainApp() {
   const principalShort = identity
     ? `${identity.getPrincipal().toString().slice(0, 8)}...`
     : "";
+
+  // Filter by search
+  const filteredCount = entries.filter((e) => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return (
+      e.name.toLowerCase().includes(q) ||
+      e.mobileNumber.toLowerCase().includes(q)
+    );
+  }).length;
+
+  function handleExport() {
+    if (entries.length === 0) {
+      toast.error("No entries to export");
+      return;
+    }
+    exportEntriesToExcel(entries, {}, "payment-entries.xlsx");
+    toast.success(`Exported ${entries.length} entries`);
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -101,8 +129,8 @@ function MainApp() {
           <SummaryBar entries={entries} />
         )}
 
-        {/* Toolbar: search + add entry */}
-        <div className="flex items-center gap-2 mt-3 mb-2">
+        {/* Toolbar: search + profit button + export + add entry */}
+        <div className="flex items-center gap-2 mt-3 mb-3">
           <div className="relative flex-1 max-w-xs">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
             <Input
@@ -114,7 +142,22 @@ function MainApp() {
             />
           </div>
 
+          {/* Profit button - beside search */}
+          {!isLoading && <MonthlyProfitButton entries={entries} />}
+
           <div className="flex-1" />
+
+          {/* Export button */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs gap-1.5"
+            onClick={handleExport}
+            data-ocid="export.button"
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Export</span>
+          </Button>
 
           <Button
             size="sm"
@@ -127,24 +170,13 @@ function MainApp() {
           </Button>
         </div>
 
-        {/* Table */}
+        {/* Entry Table - all entries */}
         <EntryTable entries={entries} isLoading={isLoading} search={search} />
 
-        {/* Row count footer */}
         {!isLoading && entries.length > 0 && (
           <div className="mt-2 text-[10px] text-muted-foreground text-right">
             {search
-              ? `Showing ${
-                  entries.filter((e) => {
-                    const q = search.toLowerCase();
-                    return (
-                      e.name.toLowerCase().includes(q) ||
-                      e.mobileNumber.toLowerCase().includes(q) ||
-                      formatCurrency(e.amount).includes(q) ||
-                      formatCurrency(e.totalAmount).includes(q)
-                    );
-                  }).length
-                } of ${entries.length} entries`
+              ? `Showing ${filteredCount} of ${entries.length} entries`
               : `${entries.length} total entries`}
           </div>
         )}
