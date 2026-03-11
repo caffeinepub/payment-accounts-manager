@@ -1,19 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Entry } from "../backend.d";
+import type { Entry, HistoryEntry } from "../backend.d";
+import { removeCommissionSplit } from "../utils/commissionSplitStorage";
 import { removeCommissionType } from "../utils/commissionStorage";
-import { getSecretParameter } from "../utils/urlParams";
 import { useActor } from "./useActor";
-
-async function ensureRegistered(actor: {
-  _initializeAccessControlWithSecret: (token: string) => Promise<void>;
-}) {
-  const adminToken = getSecretParameter("caffeineAdminToken") || "";
-  try {
-    await actor._initializeAccessControlWithSecret(adminToken);
-  } catch {
-    // Already registered or initialization failed — continue
-  }
-}
 
 export function useGetEntries() {
   const { actor, isFetching } = useActor();
@@ -36,15 +25,16 @@ export function useCreateEntry() {
       mobileNumber,
       amount,
       commission,
+      advance,
     }: {
       name: string;
       mobileNumber: string;
       amount: bigint;
       commission: bigint;
+      advance: bigint;
     }) => {
       if (!actor) throw new Error("Not authenticated");
-      await ensureRegistered(actor);
-      return actor.createEntry(name, mobileNumber, amount, commission);
+      return actor.createEntry(name, mobileNumber, amount, commission, advance);
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["entries"] });
@@ -63,6 +53,7 @@ export function useUpdateEntry() {
       amount,
       commission,
       paid,
+      advance,
     }: {
       id: string;
       name: string;
@@ -70,9 +61,9 @@ export function useUpdateEntry() {
       amount: bigint;
       commission: bigint;
       paid: boolean;
+      advance: bigint;
     }) => {
       if (!actor) throw new Error("Not authenticated");
-      await ensureRegistered(actor);
       return actor.updateEntry(
         id,
         name,
@@ -80,6 +71,7 @@ export function useUpdateEntry() {
         amount,
         commission,
         paid,
+        advance,
       );
     },
     onSuccess: () => {
@@ -94,12 +86,55 @@ export function useDeleteEntry() {
   return useMutation({
     mutationFn: async (id: string) => {
       if (!actor) throw new Error("Not authenticated");
-      await ensureRegistered(actor);
       return actor.deleteEntry(id);
     },
     onSuccess: (_data, id) => {
       removeCommissionType(id);
+      removeCommissionSplit(id);
       void queryClient.invalidateQueries({ queryKey: ["entries"] });
+    },
+  });
+}
+
+export function useMoveEntryToHistory() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (!actor) throw new Error("Not authenticated");
+      return actor.moveEntryToHistory(id);
+    },
+    onSuccess: (_data, id) => {
+      removeCommissionType(id);
+      removeCommissionSplit(id);
+      void queryClient.invalidateQueries({ queryKey: ["entries"] });
+      void queryClient.invalidateQueries({ queryKey: ["historyEntries"] });
+    },
+  });
+}
+
+export function useGetHistoryEntries() {
+  const { actor, isFetching } = useActor();
+  return useQuery<HistoryEntry[]>({
+    queryKey: ["historyEntries"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getHistoryEntries();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useDeleteHistoryEntry() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (!actor) throw new Error("Not authenticated");
+      return actor.deleteHistoryEntry(id);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["historyEntries"] });
     },
   });
 }

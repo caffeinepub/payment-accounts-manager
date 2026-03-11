@@ -19,6 +19,19 @@ export interface Entry {
   'commission' : bigint,
   'totalAmount' : bigint,
   'amount' : bigint,
+  'advance' : bigint,
+}
+export interface HistoryEntry {
+  'id' : string,
+  'dateCreated' : bigint,
+  'name' : string,
+  'paid' : boolean,
+  'mobileNumber' : string,
+  'commission' : bigint,
+  'totalAmount' : bigint,
+  'amount' : bigint,
+  'datePaid' : bigint,
+  'advance' : bigint,
 }
 export interface UserProfile { 'name' : string }
 export type UserRole = { 'admin' : null } |
@@ -27,16 +40,19 @@ export type UserRole = { 'admin' : null } |
 export interface _SERVICE {
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
-  'createEntry' : ActorMethod<[string, string, bigint, bigint], string>,
+  'createEntry' : ActorMethod<[string, string, bigint, bigint, bigint], string>,
   'deleteEntry' : ActorMethod<[string], undefined>,
+  'deleteHistoryEntry' : ActorMethod<[string], undefined>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getEntries' : ActorMethod<[], Array<Entry>>,
+  'getHistoryEntries' : ActorMethod<[], Array<HistoryEntry>>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
+  'moveEntryToHistory' : ActorMethod<[string], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'updateEntry' : ActorMethod<
-    [string, string, string, bigint, bigint, boolean],
+    [string, string, string, bigint, bigint, boolean, bigint],
     undefined
   >,
 }

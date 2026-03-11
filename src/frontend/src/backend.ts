@@ -98,6 +98,19 @@ export interface Entry {
     commission: bigint;
     totalAmount: bigint;
     amount: bigint;
+    advance: bigint;
+}
+export interface HistoryEntry {
+    id: string;
+    dateCreated: bigint;
+    name: string;
+    paid: boolean;
+    mobileNumber: string;
+    commission: bigint;
+    totalAmount: bigint;
+    amount: bigint;
+    datePaid: bigint;
+    advance: bigint;
 }
 export interface UserProfile {
     name: string;
@@ -110,15 +123,18 @@ export enum UserRole {
 export interface backendInterface {
     _initializeAccessControlWithSecret(userSecret: string): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
-    createEntry(name: string, mobileNumber: string, amount: bigint, commission: bigint): Promise<string>;
+    createEntry(name: string, mobileNumber: string, amount: bigint, commission: bigint, advance: bigint): Promise<string>;
     deleteEntry(id: string): Promise<void>;
+    deleteHistoryEntry(id: string): Promise<void>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
     getEntries(): Promise<Array<Entry>>;
+    getHistoryEntries(): Promise<Array<HistoryEntry>>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
+    moveEntryToHistory(id: string): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
-    updateEntry(id: string, name: string, mobileNumber: string, amount: bigint, commission: bigint, paid: boolean): Promise<void>;
+    updateEntry(id: string, name: string, mobileNumber: string, amount: bigint, commission: bigint, paid: boolean, advance: bigint): Promise<void>;
 }
 import type { UserProfile as _UserProfile, UserRole as _UserRole } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
@@ -151,17 +167,17 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async createEntry(arg0: string, arg1: string, arg2: bigint, arg3: bigint): Promise<string> {
+    async createEntry(arg0: string, arg1: string, arg2: bigint, arg3: bigint, arg4: bigint): Promise<string> {
         if (this.processError) {
             try {
-                const result = await this.actor.createEntry(arg0, arg1, arg2, arg3);
+                const result = await this.actor.createEntry(arg0, arg1, arg2, arg3, arg4);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.createEntry(arg0, arg1, arg2, arg3);
+            const result = await this.actor.createEntry(arg0, arg1, arg2, arg3, arg4);
             return result;
         }
     }
@@ -176,6 +192,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.deleteEntry(arg0);
+            return result;
+        }
+    }
+    async deleteHistoryEntry(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteHistoryEntry(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteHistoryEntry(arg0);
             return result;
         }
     }
@@ -221,6 +251,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async getHistoryEntries(): Promise<Array<HistoryEntry>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getHistoryEntries();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getHistoryEntries();
+            return result;
+        }
+    }
     async getUserProfile(arg0: Principal): Promise<UserProfile | null> {
         if (this.processError) {
             try {
@@ -249,6 +293,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async moveEntryToHistory(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.moveEntryToHistory(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.moveEntryToHistory(arg0);
+            return result;
+        }
+    }
     async saveCallerUserProfile(arg0: UserProfile): Promise<void> {
         if (this.processError) {
             try {
@@ -263,17 +321,17 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async updateEntry(arg0: string, arg1: string, arg2: string, arg3: bigint, arg4: bigint, arg5: boolean): Promise<void> {
+    async updateEntry(arg0: string, arg1: string, arg2: string, arg3: bigint, arg4: bigint, arg5: boolean, arg6: bigint): Promise<void> {
         if (this.processError) {
             try {
-                const result = await this.actor.updateEntry(arg0, arg1, arg2, arg3, arg4, arg5);
+                const result = await this.actor.updateEntry(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.updateEntry(arg0, arg1, arg2, arg3, arg4, arg5);
+            const result = await this.actor.updateEntry(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
             return result;
         }
     }

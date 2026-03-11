@@ -3,6 +3,7 @@ const SPLIT_KEY = "commissionSplitMap";
 export interface CommissionSplit {
   commPrakash: string;
   commOthers: string;
+  advance: string;
 }
 
 function getSplitMap(): Record<string, CommissionSplit> {
@@ -17,12 +18,16 @@ function getSplitMap(): Record<string, CommissionSplit> {
 
 export function getCommissionSplit(id: string): CommissionSplit {
   const map = getSplitMap();
-  return map[id] ?? { commPrakash: "", commOthers: "" };
+  return map[id] ?? { commPrakash: "", commOthers: "", advance: "" };
 }
 
 export function setCommissionSplit(id: string, split: CommissionSplit): void {
   const map = getSplitMap();
-  map[id] = split;
+  map[id] = {
+    commPrakash: split.commPrakash,
+    commOthers: split.commOthers,
+    advance: split.advance ?? "",
+  };
   localStorage.setItem(SPLIT_KEY, JSON.stringify(map));
 }
 

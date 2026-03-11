@@ -15,11 +15,11 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { EntryFormDialog } from "./components/EntryFormDialog";
 import { EntryTable } from "./components/EntryTable";
+import { HistorySection } from "./components/HistorySection";
 import { LoginScreen } from "./components/LoginScreen";
-import { MonthlyProfitButton } from "./components/MonthlyProfitSummary";
 import { SummaryBar } from "./components/SummaryBar";
 import { useInternetIdentity } from "./hooks/useInternetIdentity";
-import { useGetEntries } from "./hooks/useQueries";
+import { useGetEntries, useGetHistoryEntries } from "./hooks/useQueries";
 import { exportEntriesToExcel } from "./utils/exportExcel";
 
 function MainApp() {
@@ -32,6 +32,8 @@ function MainApp() {
     refetch,
     isFetching,
   } = useGetEntries();
+
+  const { data: historyEntries = [] } = useGetHistoryEntries();
 
   const principalShort = identity
     ? `${identity.getPrincipal().toString().slice(0, 8)}...`
@@ -121,7 +123,7 @@ function MainApp() {
         {/* Summary bar */}
         {isLoading ? (
           <div className="flex gap-2 py-2">
-            {[1, 2, 3].map((i) => (
+            {[1, 2].map((i) => (
               <Skeleton key={i} className="h-8 w-36 rounded" />
             ))}
           </div>
@@ -129,7 +131,7 @@ function MainApp() {
           <SummaryBar entries={entries} />
         )}
 
-        {/* Toolbar: search + profit button + export + add entry */}
+        {/* Toolbar: search + export + add entry */}
         <div className="flex items-center gap-2 mt-3 mb-3">
           <div className="relative flex-1 max-w-xs">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
@@ -141,9 +143,6 @@ function MainApp() {
               data-ocid="search.input"
             />
           </div>
-
-          {/* Profit button - beside search */}
-          {!isLoading && <MonthlyProfitButton entries={entries} />}
 
           <div className="flex-1" />
 
@@ -172,6 +171,9 @@ function MainApp() {
 
         {/* Entry Table - all entries */}
         <EntryTable entries={entries} isLoading={isLoading} search={search} />
+
+        {/* History Section */}
+        {!isLoading && <HistorySection entries={historyEntries} />}
 
         {!isLoading && entries.length > 0 && (
           <div className="mt-2 text-[10px] text-muted-foreground text-right">

@@ -24,6 +24,11 @@ interface EntryFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editEntry?: Entry | null;
+  prefillData?: {
+    name: string;
+    mobileNumber: string;
+    amount: string;
+  };
   onSaved?: () => void;
 }
 
@@ -31,8 +36,7 @@ interface FormState {
   name: string;
   mobileNumber: string;
   amount: string;
-  commPrakash: string;
-  commOthers: string;
+  advance: string;
   paid: boolean;
 }
 
@@ -40,8 +44,7 @@ const DEFAULT_FORM: FormState = {
   name: "",
   mobileNumber: "+91",
   amount: "",
-  commPrakash: "",
-  commOthers: "",
+  advance: "",
   paid: false,
 };
 
@@ -64,6 +67,7 @@ export function EntryFormDialog({
   open,
   onOpenChange,
   editEntry,
+  prefillData,
   onSaved,
 }: EntryFormDialogProps) {
   const [form, setForm] = useState<FormState>(DEFAULT_FORM);
@@ -71,9 +75,10 @@ export function EntryFormDialog({
   const updateEntry = useUpdateEntry();
 
   const isEditing = !!editEntry;
+  const isPrefill = !!prefillData && !isEditing;
   const isPending = createEntry.isPending || updateEntry.isPending;
 
-  // Populate form when editing
+  // Populate form when editing or prefilling
   useEffect(() => {
     if (open) {
       if (editEntry) {
@@ -82,20 +87,26 @@ export function EntryFormDialog({
           name: editEntry.name,
           mobileNumber: editEntry.mobileNumber,
           amount: fromCurrencyBigInt(editEntry.amount),
-          commPrakash: split.commPrakash,
-          commOthers: split.commOthers,
+          advance: split.advance || fromCurrencyBigInt(editEntry.advance),
           paid: editEntry.paid,
+        });
+      } else if (prefillData) {
+        setForm({
+          ...DEFAULT_FORM,
+          name: prefillData.name,
+          mobileNumber: prefillData.mobileNumber,
+          amount: prefillData.amount,
         });
       } else {
         setForm({ ...DEFAULT_FORM });
       }
     }
-  }, [open, editEntry]);
+  }, [open, editEntry, prefillData]);
 
   const amountNum = Number.parseFloat(form.amount) || 0;
-  const commPrakashNum = Number.parseFloat(form.commPrakash) || 0;
-  const commOthersNum = Number.parseFloat(form.commOthers) || 0;
-  const totalDisplay = (amountNum + commPrakashNum + commOthersNum).toFixed(2);
+  const advanceNum = Number.parseFloat(form.advance) || 0;
+  const newBalance = Math.max(0, amountNum - advanceNum);
+  const balanceDisplay = newBalance.toFixed(2);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -136,10 +147,8 @@ export function EntryFormDialog({
       return;
     }
 
-    const combinedCommission = toCurrencyBigInt(
-      (commPrakashNum + commOthersNum).toFixed(2),
-    );
     const amountBigInt = toCurrencyBigInt(form.amount || "0");
+    const advanceBigInt = toCurrencyBigInt(form.advance || "0");
 
     try {
       if (isEditing && editEntry) {
@@ -148,12 +157,14 @@ export function EntryFormDialog({
           name: form.name.trim(),
           mobileNumber: form.mobileNumber.trim(),
           amount: amountBigInt,
-          commission: combinedCommission,
+          commission: BigInt(0),
           paid: form.paid,
+          advance: advanceBigInt,
         });
         setCommissionSplit(editEntry.id, {
-          commPrakash: form.commPrakash,
-          commOthers: form.commOthers,
+          commPrakash: "0",
+          commOthers: "0",
+          advance: form.advance,
         });
         onSaved?.();
         toast.success("Entry updated");
@@ -162,11 +173,13 @@ export function EntryFormDialog({
           name: form.name.trim(),
           mobileNumber: form.mobileNumber.trim(),
           amount: amountBigInt,
-          commission: combinedCommission,
+          commission: BigInt(0),
+          advance: advanceBigInt,
         });
         setCommissionSplit(newId, {
-          commPrakash: form.commPrakash,
-          commOthers: form.commOthers,
+          commPrakash: "0",
+          commOthers: "0",
+          advance: form.advance,
         });
         onSaved?.();
         toast.success("Entry created");
@@ -187,12 +200,18 @@ export function EntryFormDialog({
       >
         <DialogHeader>
           <DialogTitle className="text-sm font-semibold">
-            {isEditing ? "Edit Entry" : "Add New Entry"}
+            {isEditing
+              ? "Edit Entry"
+              : isPrefill
+                ? "Record Advance Payment"
+                : "Add New Entry"}
           </DialogTitle>
           <p id="entry-form-desc" className="text-xs text-muted-foreground">
             {isEditing
               ? "Update the entry details below."
-              : "Fill in the details for the new payment entry."}
+              : isPrefill
+                ? `Outstanding balance: ₹${amountNum.toFixed(2)}. Enter the advance paid to record new balance.`
+                : "Fill in the details for the new payment entry."}
           </p>
         </DialogHeader>
 
@@ -210,6 +229,7 @@ export function EntryFormDialog({
               className="h-8 text-xs"
               data-ocid="entry_form.name.input"
               required
+              readOnly={isPrefill}
             />
           </div>
 
@@ -235,26 +255,29 @@ export function EntryFormDialog({
                   placeholder="9876543210"
                   className="h-8 text-xs font-mono rounded-l-none"
                   data-ocid="entry_form.mobile.input"
+                  readOnly={isPrefill}
                 />
               </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 flex-shrink-0 text-muted-foreground hover:text-foreground"
-                onClick={handlePickFromPhonebook}
-                title="Add from phonebook"
-                data-ocid="entry_form.phonebook.button"
-              >
-                <BookUser className="h-3.5 w-3.5" />
-              </Button>
+              {!isPrefill && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 flex-shrink-0 text-muted-foreground hover:text-foreground"
+                  onClick={handlePickFromPhonebook}
+                  title="Add from phonebook"
+                  data-ocid="entry_form.phonebook.button"
+                >
+                  <BookUser className="h-3.5 w-3.5" />
+                </Button>
+              )}
             </div>
           </div>
 
-          {/* Amount (full width) */}
+          {/* Amount */}
           <div className="space-y-1">
             <Label htmlFor="entry-amount" className="text-xs font-medium">
-              Amount
+              {isPrefill ? "Outstanding Balance (Total Due)" : "Amount"}
             </Label>
             <Input
               id="entry-amount"
@@ -266,60 +289,49 @@ export function EntryFormDialog({
               placeholder="0.00"
               className="h-8 text-xs font-mono"
               data-ocid="entry_form.amount.input"
+              readOnly={isPrefill}
             />
           </div>
 
-          {/* Comm Prakash & Comm Others side by side */}
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1">
-              <Label
-                htmlFor="entry-comm-prakash"
-                className="text-xs font-medium"
-              >
-                Comm Prakash
-              </Label>
-              <Input
-                id="entry-comm-prakash"
-                type="number"
-                step="0.01"
-                min="0"
-                value={form.commPrakash}
-                onChange={(e) => update("commPrakash", e.target.value)}
-                placeholder="0.00"
-                className="h-8 text-xs font-mono"
-                data-ocid="entry_form.comm_prakash.input"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label
-                htmlFor="entry-comm-others"
-                className="text-xs font-medium"
-              >
-                Comm Others
-              </Label>
-              <Input
-                id="entry-comm-others"
-                type="number"
-                step="0.01"
-                min="0"
-                value={form.commOthers}
-                onChange={(e) => update("commOthers", e.target.value)}
-                placeholder="0.00"
-                className="h-8 text-xs font-mono"
-                data-ocid="entry_form.comm_others.input"
-              />
-            </div>
+          {/* Advance */}
+          <div className="space-y-1">
+            <Label htmlFor="entry-advance" className="text-xs font-medium">
+              {isPrefill ? "Advance Paid Now" : "Advance"}
+            </Label>
+            <Input
+              id="entry-advance"
+              type="number"
+              step="0.01"
+              min="0"
+              value={form.advance}
+              onChange={(e) => update("advance", e.target.value)}
+              placeholder="0.00"
+              className="h-8 text-xs font-mono"
+              data-ocid="entry_form.advance.input"
+              autoFocus={isPrefill}
+            />
           </div>
 
-          {/* Total (read-only, auto-calculated) */}
+          {/* Balance (read-only, auto-calculated) */}
           <div className="space-y-1">
             <Label className="text-xs font-medium text-muted-foreground">
-              Total (auto-calculated)
+              {isPrefill
+                ? "New Balance After Payment"
+                : "Balance (Amount − Advance)"}
             </Label>
             <div className="h-8 px-3 flex items-center bg-muted rounded border border-border">
-              <span className="text-xs font-mono font-semibold text-foreground tabular-nums">
-                {totalDisplay}
+              <span
+                className={`text-xs font-mono font-semibold tabular-nums ${
+                  newBalance === 0 ? "text-success" : "text-warning"
+                }`}
+              >
+                {balanceDisplay}
               </span>
+              {newBalance === 0 && (
+                <span className="ml-2 text-[10px] text-success font-semibold">
+                  ✓ Fully Paid
+                </span>
+              )}
             </div>
           </div>
 
@@ -361,7 +373,13 @@ export function EntryFormDialog({
               {isPending && (
                 <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
               )}
-              {isPending ? "Saving..." : isEditing ? "Update" : "Add Entry"}
+              {isPending
+                ? "Saving..."
+                : isEditing
+                  ? "Update"
+                  : isPrefill
+                    ? "Record Payment"
+                    : "Add Entry"}
             </Button>
           </DialogFooter>
         </form>
