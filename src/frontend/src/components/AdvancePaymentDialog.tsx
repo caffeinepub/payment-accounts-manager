@@ -12,7 +12,7 @@ import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { Entry } from "../backend.d";
-import { useUpdateEntry } from "../hooks/useQueries";
+import { useCreateEntry } from "../hooks/useQueries";
 import { toCurrencyBigInt } from "../utils/currency";
 
 interface AdvancePaymentDialogProps {
@@ -29,7 +29,7 @@ export function AdvancePaymentDialog({
   totalBalance,
 }: AdvancePaymentDialogProps) {
   const [advancePaid, setAdvancePaid] = useState("");
-  const updateEntry = useUpdateEntry();
+  const createEntry = useCreateEntry();
 
   // Reset when dialog closes
   useEffect(() => {
@@ -39,21 +39,22 @@ export function AdvancePaymentDialog({
   }, [open]);
 
   const advanceNum = Number.parseFloat(advancePaid) || 0;
-  const newBalance = totalBalance - advanceNum;
+  const newTotalBalance = totalBalance - advanceNum;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!entry || advanceNum <= 0) return;
 
     try {
-      await updateEntry.mutateAsync({
-        id: entry.id,
+      // Create a new entry with amount=0, advance=paid amount
+      // This records the payment; balance on this entry = 0
+      // The group's Total Bal is automatically reduced by advanceNum
+      await createEntry.mutateAsync({
         name: entry.name,
         mobileNumber: entry.mobileNumber,
-        amount: entry.totalAmount,
+        amount: BigInt(0),
         commission: BigInt(0),
-        paid: entry.paid,
-        advance: entry.advance + toCurrencyBigInt(advanceNum),
+        advance: toCurrencyBigInt(advanceNum),
       });
       toast.success("Advance payment recorded");
       onOpenChange(false);
@@ -94,17 +95,41 @@ export function AdvancePaymentDialog({
             />
           </div>
 
-          {/* New balance preview */}
+          {/* Preview */}
           {advanceNum > 0 && (
-            <div className="rounded-md bg-muted/30 px-3 py-2 text-sm">
-              <span className="text-muted-foreground">New Balance: </span>
-              <span
-                className={`font-semibold font-mono ${
-                  newBalance <= 0 ? "text-green-600" : "text-amber-600"
-                }`}
-              >
-                ₹{newBalance.toFixed(2)}
-              </span>
+            <div className="rounded-md bg-muted/30 px-3 py-2 text-sm space-y-1">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">New entry Amount:</span>
+                <span className="font-semibold font-mono">₹0.00</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">
+                  New entry Advance:
+                </span>
+                <span className="font-semibold font-mono">
+                  ₹{advanceNum.toFixed(2)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">
+                  New entry Balance:
+                </span>
+                <span className="font-semibold font-mono text-success">
+                  ₹0.00
+                </span>
+              </div>
+              <div className="border-t border-border/40 pt-1 mt-1 flex justify-between">
+                <span className="text-muted-foreground">
+                  Total Balance after:
+                </span>
+                <span
+                  className={`font-semibold font-mono ${
+                    newTotalBalance <= 0 ? "text-success" : "text-amber-600"
+                  }`}
+                >
+                  ₹{newTotalBalance.toFixed(2)}
+                </span>
+              </div>
             </div>
           )}
 
@@ -119,13 +144,13 @@ export function AdvancePaymentDialog({
             </Button>
             <Button
               type="submit"
-              disabled={updateEntry.isPending || advanceNum <= 0}
+              disabled={createEntry.isPending || advanceNum <= 0}
               data-ocid="advance_payment.submit_button"
             >
-              {updateEntry.isPending ? (
+              {createEntry.isPending ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : null}
-              {updateEntry.isPending ? "Saving..." : "Save"}
+              {createEntry.isPending ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
         </form>

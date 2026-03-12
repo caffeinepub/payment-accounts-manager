@@ -69,23 +69,37 @@ function ValueChip({ label, value, valueClass }: ValueChipProps) {
   );
 }
 
+/** Returns the raw balance (may be negative for advance-only entries) */
 function getEntryBalance(entry: Entry): number {
   const totalNum = Number(entry.totalAmount) / 100;
   const advNum = Number(entry.advance) / 100;
   return totalNum - advNum;
 }
 
+/** True when an entry is a pure advance-payment record (amount=0, advance>0) */
+function isAdvanceOnlyEntry(entry: Entry): boolean {
+  return Number(entry.totalAmount) === 0 && Number(entry.advance) > 0;
+}
+
 /** Single row in payment history dropdown */
 function HistoryRow({ entry }: { entry: Entry }) {
-  const balance = getEntryBalance(entry);
+  const rawBalance = getEntryBalance(entry);
   const totalNum = Number(entry.totalAmount) / 100;
   const advNum = Number(entry.advance) / 100;
+  const isAdvOnly = isAdvanceOnlyEntry(entry);
+  // For advance-only entries, display balance as 0
+  const displayBal = isAdvOnly ? 0 : rawBalance;
 
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 py-1.5 px-2 border-b last:border-b-0 border-border/40">
       <span className="text-[9px] font-mono text-muted-foreground/60 whitespace-nowrap">
         {formatDate(entry.dateCreated)}
       </span>
+      {isAdvOnly && (
+        <span className="text-[8px] font-bold uppercase tracking-wide text-primary bg-primary/10 px-1 py-0.5 rounded">
+          ADV PAID
+        </span>
+      )}
       <ValueChip label="Amt" value={totalNum.toFixed(2)} />
       <ValueChip
         label="Adv"
@@ -94,11 +108,11 @@ function HistoryRow({ entry }: { entry: Entry }) {
       />
       <ValueChip
         label="Bal"
-        value={balance.toFixed(2)}
+        value={displayBal.toFixed(2)}
         valueClass={
-          balance < 0
+          displayBal < 0
             ? "text-destructive"
-            : balance > 0
+            : displayBal > 0
               ? "text-amber-600"
               : "text-success"
         }
@@ -143,17 +157,23 @@ function EntryGroup({
   const overdue = isOverdue(latest.paid, latest.dateCreated);
   const rowIndex = groupIndex + 1;
 
-  const balance = getEntryBalance(latest);
+  const rawBalance = getEntryBalance(latest);
   const totalNum = Number(latest.totalAmount) / 100;
   const advNum = Number(latest.advance) / 100;
+  const isLatestAdvOnly = isAdvanceOnlyEntry(latest);
 
-  // Total balance = current entry balance + sum of all older entry balances
+  // Display balance: 0 for advance-only entries (they carry no new debt)
+  const displayBalance = isLatestAdvOnly ? 0 : rawBalance;
+
+  // Total balance across all entries in group (uses raw balances so advance-only
+  // entries correctly reduce the running total: rawBalance = -Y for advance-only)
   const totalGroupBalance = hasHistory
-    ? balance + older.reduce((sum, e) => sum + getEntryBalance(e), 0)
+    ? rawBalance + older.reduce((sum, e) => sum + getEntryBalance(e), 0)
     : null;
 
-  // Display balance for the latest entry
-  const displayBalance = balance;
+  // Outstanding balance to pass to advance dialog
+  const outstandingForAdvance =
+    totalGroupBalance !== null ? totalGroupBalance : displayBalance;
 
   return (
     <div
@@ -177,7 +197,15 @@ function EntryGroup({
             >
               {latest.name}
             </span>
-            {overdue && (
+            {isLatestAdvOnly && (
+              <Badge
+                variant="outline"
+                className="text-[8px] px-1 py-0 h-4 border-primary/40 text-primary bg-primary/10 font-bold uppercase whitespace-nowrap flex-shrink-0"
+              >
+                ADV PAID
+              </Badge>
+            )}
+            {overdue && !isLatestAdvOnly && (
               <Badge
                 variant="outline"
                 className="text-[8px] px-1 py-0 h-4 border-warning/60 text-warning bg-warning/10 font-bold uppercase whitespace-nowrap flex-shrink-0"
@@ -259,10 +287,7 @@ function EntryGroup({
                   onClick={() =>
                     onAdvance({
                       entry: latest,
-                      totalBalance:
-                        totalGroupBalance !== null
-                          ? totalGroupBalance
-                          : displayBalance,
+                      totalBalance: outstandingForAdvance,
                     })
                   }
                   data-ocid={`entry.advance_button.${rowIndex}`}
@@ -490,7 +515,6 @@ export function EntryTable({ entries, isLoading, search }: EntryTableProps) {
     if (!deleteTarget) return;
     const { entry, group } = deleteTarget;
     try {
-      // Delete all entries in the group sequentially
       for (const e of group) {
         await deleteEntry.mutateAsync(e.id);
       }
@@ -512,7 +536,6 @@ export function EntryTable({ entries, isLoading, search }: EntryTableProps) {
     }
   }
 
-  // The older entries (payment history) count for the delete dialog
   const deleteHistoryCount = deleteTarget ? deleteTarget.group.length - 1 : 0;
 
   if (isLoading) {
@@ -586,7 +609,7 @@ export function EntryTable({ entries, isLoading, search }: EntryTableProps) {
         editEntry={editEntry}
       />
 
-      {/* Advance payment modal — updates existing entry's advance field */}
+      {/* Advance payment modal — creates new entry with amount=0, advance=paid */}
       <AdvancePaymentDialog
         open={!!advanceTarget}
         onOpenChange={(open) => !open && setAdvanceTarget(null)}
